@@ -1,30 +1,12 @@
 package translate
 
 import (
-	"bufio"
 	"errors"
+	"infoclust/json_io"
 	"os"
 	"regexp"
 	"strings"
 )
-
-func readJsonRaw(path string) ([]string, error) {
-	lines := make([]string, 1)
-
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-	}
-
-	return lines, scanner.Err()
-}
 
 func writeTranslatedSliceToFile(slice []string, path string) error {
 	file, err := os.Create(path)
@@ -46,8 +28,8 @@ func writeTranslatedSliceToFile(slice []string, path string) error {
 }
 
 func Translate(keywordsPath, translatedPath, outPath string) error {
-	translatedSliceRaw, errTranslated := readJsonRaw(translatedPath)
-	keywordsSliceRaw, errKeywords := readJsonRaw(keywordsPath)
+	translatedSliceRaw, errTranslated := json_io.ReadJsonRaw(translatedPath)
+	keywordsSliceRaw, errKeywords := json_io.ReadJsonRaw(keywordsPath)
 
 	if errTranslated != nil {
 		return errTranslated
