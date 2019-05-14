@@ -10,5 +10,8 @@
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+<<<<<<< HEAD
 
 ./idea
+=======
+>>>>>>> 50b32538b32ed0246edd88246bf0e6d4135d08f0
