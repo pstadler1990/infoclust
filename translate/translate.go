@@ -5,8 +5,8 @@ import (
 	"errors"
 	"os"
 	"regexp"
+	"strings"
 )
-
 
 func readJsonRaw(path string) ([]string, error) {
 	lines := make([]string, 1)
@@ -45,7 +45,7 @@ func writeTranslatedSliceToFile(slice []string, path string) error {
 	return nil
 }
 
-func Translate(keywordsPath, translatedPath string) error {
+func Translate(keywordsPath, translatedPath, outPath string) error {
 	translatedSliceRaw, errTranslated := readJsonRaw(translatedPath)
 	keywordsSliceRaw, errKeywords := readJsonRaw(keywordsPath)
 
@@ -84,10 +84,15 @@ func Translate(keywordsPath, translatedPath string) error {
 			/* Overwrite file string */
 			s = reKeywordsValue.ReplaceAllString(s, translatedSlice[counter])
 			counter += 1
+
+			if counter == len(translatedSlice) {
+				/* Remove comma from the last element to preserve valid JSON */
+				s = strings.TrimRight(s, ",")
+			}
 		}
 		/* Write raw string (both modified and original) */
 		keywordsSlice = append(keywordsSlice, s)
 	}
 
-	return writeTranslatedSliceToFile(keywordsSlice, "out.json")
+	return writeTranslatedSliceToFile(keywordsSlice, outPath)
 }
