@@ -3,7 +3,14 @@ package main
 import (
 	"fmt"
 	"infoclust/json_io"
+	"infoclust/stem"
 )
+
+// 1. Load article and create bow map of type map[string]int from its keywords
+// 2. Load subpages file and foreach main category (outer loop) and foreach sub category (inner loop)
+//	  create bow map of type map[string]int,
+// 3. Store each sub map in a slice of maps
+// 4. Compare article's bow map against each slice of the subpages map slice
 
 func main() {
 	//slice1 := []interface{}{"1", "2", "3", "4", "7"}
@@ -16,8 +23,15 @@ func main() {
 	mArticle, err := json_io.ReadJSON("test_article.json")
 
 	if err != nil {
-		return
+		panic("Article file corrupt")
 	}
 
-	fmt.Println(mArticle)
+	articleKeywords, ok := mArticle[0]["keywords"].(map[string]interface{})
+	if !ok {
+		panic("Illegal article file")
+	}
+
+	articleBow := stem.Lemmatize(articleKeywords)
+
+	fmt.Println(articleBow)
 }
