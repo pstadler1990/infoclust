@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"infoclust/json_io"
 	"infoclust/stem"
+	"reflect"
 )
 
 // 1. Load article and create bow map of type map[string]int from its keywords
@@ -11,6 +12,10 @@ import (
 //	  create bow map of type map[string]int,
 // 3. Store each sub map in a slice of maps
 // 4. Compare article's bow map against each slice of the subpages map slice
+func compare(bowA, bowB map[string]int) (error, float64) {
+
+	return nil, 0.0
+}
 
 func main() {
 	//slice1 := []interface{}{"1", "2", "3", "4", "7"}
@@ -33,5 +38,41 @@ func main() {
 
 	articleBow := stem.Lemmatize(articleKeywords)
 
-	fmt.Println(articleBow)
+	mSubpages, err := json_io.ReadJSON("test_subpages.json")
+
+	if err != nil {
+		panic("Subpages file corrupt")
+	}
+
+	for _, value := range mSubpages[0] {
+
+		if reflect.ValueOf(value).Kind() == reflect.Map {
+			/* Nested map */
+			switch value.(type) {
+			case map[string]interface{}:
+				for _, bow := range value.(map[string]interface{}) {
+
+					bowConverted := make(map[string]int)
+
+					switch bow.(type) {
+					case map[string]interface{}:
+						for k, v := range bow.(map[string]interface{}) {
+							bowConverted[k] = int(v.(float64))
+						}
+					}
+
+					// TODO: Compare bow with article(s)
+					if ok {
+						err, dist := compare(articleBow, bowConverted)
+						if err != nil {
+							panic("Illegal comparison")
+						}
+						fmt.Println(dist)
+					}
+
+				}
+			}
+
+		}
+	}
 }
