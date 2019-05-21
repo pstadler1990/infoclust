@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/atedja/go-vector"
 	"github.com/logrusorgru/aurora"
-	_ "github.com/logrusorgru/aurora"
 	"infoclust/cosine"
 	"infoclust/json_io"
 	"infoclust/stem"
@@ -111,12 +110,10 @@ func main() {
 						if dist >= MIN_SCORE {
 							fmt.Println(aurora.Red(sub), ": ", dist)
 						}
-						//fmt.Println(aurora.Green(sub), ": ", dist)
 					}
 				}
 
 			}
 		}
 	}
-
 }
