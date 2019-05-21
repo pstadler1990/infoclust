@@ -1,17 +1,18 @@
 package main
 
 import (
-	"fmt"
 	"github.com/atedja/go-vector"
 	"github.com/deckarep/golang-set"
-	"github.com/logrusorgru/aurora"
 	"infoclust/cosine"
 	"infoclust/json_io"
 	"infoclust/stem"
+	"log"
+	"os"
 	"reflect"
 )
 
-const MIN_SCORE float64 = 0.75
+const MIN_SCORE float64 = 0.8
+const LOG_FILE string = "results.log"
 
 func compare(bowA, bowB map[string]int) (error, float64) {
 	// Convert the two bow's into vectors in the form [0,1,0,1,1,...]
@@ -55,13 +56,23 @@ func main() {
 	//
 	//translate.Translate("in_extracted_keywords.txt", "in_bow_translated.json", "out.json")
 
-	mArticle, err := json_io.ReadJSON("test_article.json")
+	f, logErr := os.OpenFile(LOG_FILE, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if logErr != nil {
+		panic("Could not create log file")
+	}
+
+	defer f.Close()
+
+	log.SetOutput(f)
+
+	// out.json contains the translated bow
+	mArticle, err := json_io.ReadJSON("out.json")
 
 	if err != nil {
 		panic("Article file corrupt")
 	}
 
-	mSubpages, err := json_io.ReadJSON("test_subpages.json")
+	mSubpages, err := json_io.ReadJSON("jsonformatter.json")
 
 	if err != nil {
 		panic("Subpages file corrupt")
@@ -85,7 +96,7 @@ func main() {
 		}
 		articleBow = stem.Lemmatize(articleBow)
 
-		fmt.Println("Distance between ", aurora.Magenta(article["title"]), " and...")
+		log.Println("Distance between ", article["title"], " and...")
 
 		name := article["title"].(string)
 
@@ -121,7 +132,7 @@ func main() {
 								mSummarize[name] = mapset.NewSet()
 							}
 							mSummarize[name].Add(cat)
-							fmt.Println(aurora.Red(sub), "from category ", aurora.Blue(cat), ": ", dist)
+							log.Println(sub, "from category ", cat, ": ", dist)
 						}
 					}
 				}
@@ -129,7 +140,7 @@ func main() {
 		}
 
 		// Summarize detected categories (main categories)
-		fmt.Println(mSummarize[name])
+		log.Println(mSummarize[name])
 
 		// TODO: Write these sets into a json object to disk
 	}
