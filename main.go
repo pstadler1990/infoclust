@@ -2,19 +2,49 @@ package main
 
 import (
 	"fmt"
+	"github.com/atedja/go-vector"
+	"github.com/logrusorgru/aurora"
+	_ "github.com/logrusorgru/aurora"
+	"infoclust/cosine"
 	"infoclust/json_io"
 	"infoclust/stem"
 	"reflect"
 )
 
-// 1. Load article and create bow map of type map[string]int from its keywords
-// 2. Load subpages file and foreach main category (outer loop) and foreach sub category (inner loop)
-//	  create bow map of type map[string]int,
-// 3. Store each sub map in a slice of maps
-// 4. Compare article's bow map against each slice of the subpages map slice
-func compare(bowA, bowB map[string]int) (error, float64) {
+const MIN_SCORE float64 = 0.75
 
-	return nil, 0.0
+func compare(bowA, bowB map[string]int) (error, float64) {
+	// Convert the two bow's into vectors in the form [0,1,0,1,1,...]
+	// Missing words in the shorter bow must be represented as 0
+	var longest, shortest map[string]int
+
+	if len(bowA) >= len(bowB) {
+		longest = bowA
+		shortest = bowB
+	} else {
+		longest = bowB
+		shortest = bowA
+	}
+
+	tmpVecA := make([]float64, 0, len(longest))
+	tmpVecB := make([]float64, 0, len(longest))
+
+	for k, countOuter := range longest {
+		countInner, ok := shortest[k]
+		tmpVecA = append(tmpVecA, float64(countOuter))
+		if ok {
+			// word k is in both maps
+			tmpVecB = append(tmpVecB, float64(countInner))
+		} else {
+			// word k is not present in the shorter slice, so set the count to 0
+			tmpVecB = append(tmpVecB, 0)
+		}
+	}
+
+	outVecA := vector.NewWithValues(tmpVecA)
+	outVecB := vector.NewWithValues(tmpVecB)
+
+	return cosine.Distance(outVecA, outVecB)
 }
 
 func main() {
@@ -31,54 +61,62 @@ func main() {
 		panic("Article file corrupt")
 	}
 
-	articleKeywords, ok := mArticle[0]["keywords"].(map[string]interface{})
-	if !ok {
-		panic("Illegal article file")
-	}
-
-	articleBow := make(map[string]int)
-
-	for k, v := range articleKeywords {
-		articleBow[k] = int(v.(float64))
-	}
-	articleBow = stem.Lemmatize(articleBow)
-
 	mSubpages, err := json_io.ReadJSON("test_subpages.json")
 
 	if err != nil {
 		panic("Subpages file corrupt")
 	}
 
-	for _, value := range mSubpages[0] {
+	for _, article := range mArticle {
 
-		if reflect.ValueOf(value).Kind() == reflect.Map {
-			/* Nested map */
-			switch value.(type) {
-			case map[string]interface{}:
-				for _, bow := range value.(map[string]interface{}) {
+		articleKeywords, ok := article["keywords"].(map[string]interface{})
+		if !ok {
+			panic("Illegal article file")
+		}
 
-					bowConverted := make(map[string]int)
+		articleBow := make(map[string]int)
 
-					switch bow.(type) {
-					case map[string]interface{}:
-						for k, v := range bow.(map[string]interface{}) {
-							bowConverted[k] = int(v.(float64))
+		for k, v := range articleKeywords {
+			articleBow[k] = int(v.(float64))
+		}
+		articleBow = stem.Lemmatize(articleBow)
+
+		fmt.Println("Distance between ", aurora.Magenta(article["title"]), " and...")
+
+		// Inner loop to cross each article's bow with each of the subpages file
+		for _, value := range mSubpages[0] {
+
+			if reflect.ValueOf(value).Kind() == reflect.Map {
+				/* Nested map */
+				switch value.(type) {
+				case map[string]interface{}:
+					for sub, bow := range value.(map[string]interface{}) {
+
+						bowConverted := make(map[string]int)
+
+						switch bow.(type) {
+						case map[string]interface{}:
+							for k, v := range bow.(map[string]interface{}) {
+								bowConverted[k] = int(v.(float64))
+							}
 						}
+
+						bowConverted = stem.Lemmatize(bowConverted)
+
+						err, dist := compare(articleBow, bowConverted)
+						if err != nil {
+							panic("Illegal comparison")
+						}
+
+						if dist >= MIN_SCORE {
+							fmt.Println(aurora.Red(sub), ": ", dist)
+						}
+						//fmt.Println(aurora.Green(sub), ": ", dist)
 					}
-
-					// TODO: call lemmatize on bowConverted
-					bowConverted = stem.Lemmatize(bowConverted)
-
-					// TODO: Compare bow with article(s)
-
-					err, dist := compare(articleBow, bowConverted)
-					if err != nil {
-						panic("Illegal comparison")
-					}
-					fmt.Println(dist)
 				}
-			}
 
+			}
 		}
 	}
+
 }
