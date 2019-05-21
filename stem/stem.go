@@ -5,7 +5,7 @@ import (
 	"github.com/aaaton/golem/dicts/en"
 )
 
-func Lemmatize(bow map[string]interface{}) map[string]int {
+func Lemmatize(bow map[string]int) map[string]int {
 	/* Lemmatize all words in the given bag of words (bow),
 	   to increase matches */
 	lemmatizer, err := golem.New(en.NewPackage())
@@ -17,10 +17,7 @@ func Lemmatize(bow map[string]interface{}) map[string]int {
 
 	for k, v := range bow {
 		word := lemmatizer.Lemma(k)
-		value, ok := v.(float64)
-		if ok {
-			lemmatizedBow[word] = int(value)
-		}
+		lemmatizedBow[word] = v
 	}
 
 	return lemmatizedBow

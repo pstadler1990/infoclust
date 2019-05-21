@@ -36,7 +36,12 @@ func main() {
 		panic("Illegal article file")
 	}
 
-	articleBow := stem.Lemmatize(articleKeywords)
+	articleBow := make(map[string]int)
+
+	for k, v := range articleKeywords {
+		articleBow[k] = int(v.(float64))
+	}
+	articleBow = stem.Lemmatize(articleBow)
 
 	mSubpages, err := json_io.ReadJSON("test_subpages.json")
 
@@ -61,15 +66,16 @@ func main() {
 						}
 					}
 
-					// TODO: Compare bow with article(s)
-					if ok {
-						err, dist := compare(articleBow, bowConverted)
-						if err != nil {
-							panic("Illegal comparison")
-						}
-						fmt.Println(dist)
-					}
+					// TODO: call lemmatize on bowConverted
+					bowConverted = stem.Lemmatize(bowConverted)
 
+					// TODO: Compare bow with article(s)
+
+					err, dist := compare(articleBow, bowConverted)
+					if err != nil {
+						panic("Illegal comparison")
+					}
+					fmt.Println(dist)
 				}
 			}
 
