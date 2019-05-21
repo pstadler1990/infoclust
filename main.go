@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/atedja/go-vector"
+	"github.com/deckarep/golang-set"
 	"github.com/logrusorgru/aurora"
 	"infoclust/cosine"
 	"infoclust/json_io"
@@ -66,6 +67,10 @@ func main() {
 		panic("Subpages file corrupt")
 	}
 
+	// Keeps a set of all results
+	// m[article_name] -> [category_name_a, category_name_b,...]
+	mSummarize := make(map[string]mapset.Set)
+
 	for _, article := range mArticle {
 
 		articleKeywords, ok := article["keywords"].(map[string]interface{})
@@ -82,8 +87,10 @@ func main() {
 
 		fmt.Println("Distance between ", aurora.Magenta(article["title"]), " and...")
 
+		name := article["title"].(string)
+
 		// Inner loop to cross each article's bow with each of the subpages file
-		for _, value := range mSubpages[0] {
+		for cat, value := range mSubpages[0] {
 
 			if reflect.ValueOf(value).Kind() == reflect.Map {
 				/* Nested map */
@@ -108,12 +115,22 @@ func main() {
 						}
 
 						if dist >= MIN_SCORE {
-							fmt.Println(aurora.Red(sub), ": ", dist)
+							_, ok := mSummarize[name]
+							if !ok {
+								// Article does not exist yet, allocate new slice
+								mSummarize[name] = mapset.NewSet()
+							}
+							mSummarize[name].Add(cat)
+							fmt.Println(aurora.Red(sub), "from category ", aurora.Blue(cat), ": ", dist)
 						}
 					}
 				}
-
 			}
 		}
+
+		// Summarize detected categories (main categories)
+		fmt.Println(mSummarize[name])
+
+		// TODO: Write these sets into a json object to disk
 	}
 }
