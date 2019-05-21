@@ -117,7 +117,7 @@ func main() {
 						if dist >= MIN_SCORE {
 							_, ok := mSummarize[name]
 							if !ok {
-								// Article does not exist yet, allocate new slice
+								// Article does not exist yet, allocate new set
 								mSummarize[name] = mapset.NewSet()
 							}
 							mSummarize[name].Add(cat)
