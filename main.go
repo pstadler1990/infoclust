@@ -3,7 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/atedja/go-vector"
-	"github.com/deckarep/golang-set"
+	mapset "github.com/deckarep/golang-set"
+	//"github.com/deckarep/golang-set"
 	"github.com/logrusorgru/aurora"
 	"infoclust/cosine"
 	"infoclust/json_io"
@@ -15,10 +16,11 @@ import (
 	"sync"
 )
 
-const MIN_SCORE float64 = 0.8
+const MIN_SCORE float64 = 0.7
 const LOG_FILE string = "results.log"
 const IN_ARTICLES_FILE string = "out.json"
-const IN_SUBPAGES_FILE string = "jsonformatter.json"
+const IN_SUBPAGES_FILE string = "test_subpages.json"
+const WORKERS int = 10
 
 var wg sync.WaitGroup
 
@@ -58,70 +60,71 @@ func compare(bowA, bowB map[string]int) (error, float64) {
 
 func calculate_bow_per_article(subpages map[string]interface{},
 	in <-chan map[string]interface{},
-	out chan<- map[string]mapset.Set) {
-	defer wg.Done()
-	// Keeps a set of all results
-	// m[article_name] -> [category_name_a, category_name_b,...]
-	//mSummarize := make(map[string]mapset.Set)
-	//
-	////name := <-in["title"].(string)
-	article, ok := <-in
+	out chan<- string) {
 
-	if !ok {
-		return
-	}
+	for article := range in {
 
-	articleKeywords, ok := article["keywords"].(map[string]interface{})
-	if !ok {
-		panic("Illegal article file")
-	}
+		defer wg.Done()
 
-	articleBow := make(map[string]int)
+		// Keeps a set of all results
+		// m[article_name] -> [category_name_a, category_name_b,...]
+		mSummarize := make(map[string]mapset.Set)
 
-	for k, v := range articleKeywords {
-		articleBow[k] = int(v.(float64))
-	}
-	articleBow = stem.Lemmatize(articleBow)
+		name := article["title"].(string)
+		articleKeywords, ok := article["keywords"].(map[string]interface{})
+		if !ok {
+			panic("Illegal article file")
+		}
 
-	fmt.Println(aurora.Red("Article received"), article)
+		articleBow := make(map[string]int)
 
-	// Inner loop to cross each article's bow with each of the subpages file
-	for cat, value := range subpages {
+		for k, v := range articleKeywords {
+			articleBow[k] = int(v.(float64))
+		}
+		articleBow = stem.Lemmatize(articleBow)
 
-		if reflect.ValueOf(value).Kind() == reflect.Map {
-			/* Nested map */
-			switch value.(type) {
-			case map[string]interface{}:
-				for sub, bow := range value.(map[string]interface{}) {
+		fmt.Println(aurora.Red("Article received"), article)
 
-					bowConverted := make(map[string]int)
+		// Inner loop to cross each article's bow with each of the subpages file
+		for cat, value := range subpages {
 
-					switch bow.(type) {
-					case map[string]interface{}:
-						for k, v := range bow.(map[string]interface{}) {
-							bowConverted[k] = int(v.(float64))
+			if reflect.ValueOf(value).Kind() == reflect.Map {
+				/* Nested map */
+				switch value.(type) {
+				case map[string]interface{}:
+					for sub, bow := range value.(map[string]interface{}) {
+
+						bowConverted := make(map[string]int)
+
+						switch bow.(type) {
+						case map[string]interface{}:
+							for k, v := range bow.(map[string]interface{}) {
+								bowConverted[k] = int(v.(float64))
+							}
 						}
-					}
 
-					bowConverted = stem.Lemmatize(bowConverted)
+						bowConverted = stem.Lemmatize(bowConverted)
 
-					err, dist := compare(articleBow, bowConverted)
-					if err != nil {
-						panic("Illegal comparison")
-					}
+						err, dist := compare(articleBow, bowConverted)
+						if err != nil {
+							panic("Illegal comparison")
+						}
 
-					if dist >= MIN_SCORE {
-						//_, ok := mSummarize[name]
-						//if !ok {
-						//	// Article does not exist yet, allocate new set
-						//	mSummarize[name] = mapset.NewSet()
-						//}
-						//mSummarize[name].Add(cat)
-						log.Println(sub, "from category ", cat, ": ", dist)
+						if dist >= MIN_SCORE {
+							_, ok := mSummarize[name]
+							if !ok {
+								// Article does not exist yet, allocate new set
+								mSummarize[name] = mapset.NewSet()
+							}
+							mSummarize[name].Add(cat)
+							log.Println(sub, "from category ", cat, ": ", dist, "from", name)
+						}
 					}
 				}
 			}
 		}
+		fmt.Println(aurora.Blue("Finished worker"), article["title"])
+		//out <- mSummarize
 	}
 }
 
@@ -159,28 +162,26 @@ func main() {
 
 	// Create n channels
 	runtime.GOMAXPROCS(4)
-	wg.Add(4)                                   /* len(mArticle) */
-	in := make(chan map[string]interface{}, 10) /* len(mArticle) */
-	out := make(chan map[string]mapset.Set)
+	jobs := make(chan map[string]interface{}, len(mArticle))
+	out := make(chan string)
 
-	for gr := 1; gr <= 4; gr++ {
-		go calculate_bow_per_article(mSubpages[0], in, out)
+	for gr := 1; gr <= WORKERS; gr++ {
+		go calculate_bow_per_article(mSubpages[0], jobs, out)
 	}
 
 	fmt.Println(aurora.BgBlack(aurora.Yellow("Number of articles:")), len(mArticle))
 	for _, article := range mArticle {
-
-		//log.Println("Distance between ", article["title"], " and...")
-		//name := article["title"].(string)
-		in <- article
+		jobs <- article
+		wg.Add(1)
 	}
 
-	close(in)
+	close(jobs)
 	close(out)
 
 	wg.Wait()
+
 	// Summarize detected categories (main categories)
 	//log.Println(mSummarize[name])
 	// TODO: Write these sets into a json object to disk
-	fmt.Println(aurora.BgGreen(aurora.White("Finished calculation!")))
+	fmt.Println(aurora.BgGreen("Finished calculation!"))
 }
