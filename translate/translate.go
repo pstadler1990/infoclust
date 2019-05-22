@@ -2,7 +2,7 @@ package translate
 
 import (
 	"errors"
-	"infoclust/json_io"
+	"github.com/pstadler1990/infoclust/json_io"
 	"os"
 	"regexp"
 	"strings"
