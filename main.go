@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/atedja/go-vector"
 	mapset "github.com/deckarep/golang-set"
-	//"github.com/deckarep/golang-set"
 	"github.com/logrusorgru/aurora"
 	"infoclust/cosine"
 	"infoclust/json_io"
@@ -18,7 +17,7 @@ import (
 
 const MIN_SCORE float64 = 0.7
 const LOG_FILE string = "results.log"
-const IN_ARTICLES_FILE string = "out.json"
+const IN_ARTICLES_FILE string = "test_article.json"
 const IN_SUBPAGES_FILE string = "test_subpages.json"
 const WORKERS int = 10
 
@@ -58,19 +57,20 @@ func compare(bowA, bowB map[string]int) (error, float64) {
 	return cosine.Distance(outVecA, outVecB)
 }
 
-func calculate_bow_per_article(subpages map[string]interface{},
+func calculateBowPerArticle(subpages map[string]interface{},
 	in <-chan map[string]interface{},
-	out chan<- string) {
+	out chan<- map[string]mapset.Set) {
+	// Goroutine-able function to calculate the cosine distance for each bow model
+	// in the given article and the subpages file
 
 	for article := range in {
 
-		defer wg.Done()
-
-		// Keeps a set of all results
+		name := article["title"].(string)
+		// Keeps a local set of the current results
 		// m[article_name] -> [category_name_a, category_name_b,...]
 		mSummarize := make(map[string]mapset.Set)
+		mSummarize[name] = mapset.NewSet()
 
-		name := article["title"].(string)
 		articleKeywords, ok := article["keywords"].(map[string]interface{})
 		if !ok {
 			panic("Illegal article file")
@@ -111,11 +111,6 @@ func calculate_bow_per_article(subpages map[string]interface{},
 						}
 
 						if dist >= MIN_SCORE {
-							_, ok := mSummarize[name]
-							if !ok {
-								// Article does not exist yet, allocate new set
-								mSummarize[name] = mapset.NewSet()
-							}
 							mSummarize[name].Add(cat)
 							log.Println(sub, "from category ", cat, ": ", dist, "from", name)
 						}
@@ -123,8 +118,10 @@ func calculate_bow_per_article(subpages map[string]interface{},
 				}
 			}
 		}
+
 		fmt.Println(aurora.Blue("Finished worker"), article["title"])
-		//out <- mSummarize
+		out <- mSummarize
+		wg.Done()
 	}
 }
 
@@ -158,15 +155,15 @@ func main() {
 
 	// Keeps a set of all results
 	// m[article_name] -> [category_name_a, category_name_b,...]
-	//mSummarize := make(map[string]mapset.Set)
+	mSummarize := make(map[string]mapset.Set)
 
 	// Create n channels
 	runtime.GOMAXPROCS(4)
 	jobs := make(chan map[string]interface{}, len(mArticle))
-	out := make(chan string)
+	out := make(chan map[string]mapset.Set, len(mArticle))
 
-	for gr := 1; gr <= WORKERS; gr++ {
-		go calculate_bow_per_article(mSubpages[0], jobs, out)
+	for gr := 0; gr < WORKERS; gr++ {
+		go calculateBowPerArticle(mSubpages[0], jobs, out)
 	}
 
 	fmt.Println(aurora.BgBlack(aurora.Yellow("Number of articles:")), len(mArticle))
@@ -174,14 +171,23 @@ func main() {
 		jobs <- article
 		wg.Add(1)
 	}
-
 	close(jobs)
+
+	for m := 0; m < len(mArticle); m++ {
+		for k, v := range <-out {
+			_, ok := mSummarize[k]
+			if !ok {
+				// Push into common summarize object
+				mSummarize[k] = v
+			}
+			fmt.Println(aurora.BgYellow(aurora.Black(k)), v)
+		}
+	}
 	close(out)
 
 	wg.Wait()
 
-	// Summarize detected categories (main categories)
-	//log.Println(mSummarize[name])
+	fmt.Println(aurora.BgYellow(aurora.Black(mSummarize)))
 	// TODO: Write these sets into a json object to disk
 	fmt.Println(aurora.BgGreen("Finished calculation!"))
 }
