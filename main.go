@@ -15,11 +15,11 @@ import (
 	"sync"
 )
 
-const MIN_SCORE float64 = 0.7
+const MIN_SCORE float64 = 0.85
 const LOG_FILE string = "results.log"
-const IN_ARTICLES_FILE string = "test_article.json"
-const IN_SUBPAGES_FILE string = "test_subpages.json"
-const WORKERS int = 10
+const IN_ARTICLES_FILE string = "out.json"
+const IN_SUBPAGES_FILE string = "jsonformatter.json"
+const WORKERS int = 32
 
 var wg sync.WaitGroup
 
@@ -158,7 +158,7 @@ func main() {
 	mSummarize := make(map[string]mapset.Set)
 
 	// Create n channels
-	runtime.GOMAXPROCS(4)
+	runtime.GOMAXPROCS(runtime.NumCPU())
 	jobs := make(chan map[string]interface{}, len(mArticle))
 	out := make(chan map[string]mapset.Set, len(mArticle))
 
@@ -187,7 +187,9 @@ func main() {
 
 	wg.Wait()
 
-	fmt.Println(aurora.BgYellow(aurora.Black(mSummarize)))
+	log.Println("-- BEGIN OF DUMP --")
+	log.Println(mSummarize)
 	// TODO: Write these sets into a json object to disk
 	fmt.Println(aurora.BgGreen("Finished calculation!"))
+	log.Println("-- END OF DUMP --")
 }
