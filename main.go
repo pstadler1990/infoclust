@@ -86,12 +86,14 @@ func calculateBowPerArticle(subpages map[string]interface{},
 		fmt.Println(aurora.Red("Article received"), article)
 
 		// Inner loop to cross each article's bow with each of the subpages file
+		fmt.Println(aurora.BgGreen("Categories: "), len(subpages))
 		for cat, value := range subpages {
 
 			if reflect.ValueOf(value).Kind() == reflect.Map {
 				/* Nested map */
 				switch value.(type) {
 				case map[string]interface{}:
+					fmt.Println(aurora.BgGreen("Subcategories: "), len(value.(map[string]interface{})))
 					for sub, bow := range value.(map[string]interface{}) {
 
 						bowConverted := make(map[string]int)
@@ -110,9 +112,11 @@ func calculateBowPerArticle(subpages map[string]interface{},
 							panic("Illegal comparison")
 						}
 
+						fmt.Println(aurora.BgYellow(aurora.Black("Compared")), "ARTICLE: ", aurora.Red(name), "with", bowConverted)
+
 						if dist >= MIN_SCORE {
 							mSummarize[name].Add(cat)
-							log.Println(sub, "from category ", cat, ": ", dist, "from", name)
+							fmt.Println(sub, "from category ", cat, ": ", dist, "from", name)
 						}
 					}
 				}
