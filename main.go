@@ -15,11 +15,13 @@ import (
 	"sync"
 )
 
-const MIN_SCORE float64 = 0.85
-const LOG_FILE string = "results.log"
-const IN_ARTICLES_FILE string = "out.json"
-const IN_SUBPAGES_FILE string = "jsonformatter.json"
-const WORKERS int = 32
+const (
+	MIN_SCORE        float64 = 0.85
+	LOG_FILE         string  = "results.log"
+	IN_ARTICLES_FILE string  = "out.json"
+	IN_SUBPAGES_FILE string  = "jsonformatter.json"
+	WORKERS          int     = 32
+)
 
 var wg sync.WaitGroup
 
