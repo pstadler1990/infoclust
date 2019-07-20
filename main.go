@@ -18,8 +18,8 @@ import (
 const (
 	MIN_SCORE        float64 = 0.85
 	LOG_FILE         string  = "results.log"
-	IN_ARTICLES_FILE string  = "out.json"
-	IN_SUBPAGES_FILE string  = "jsonformatter.json"
+	IN_ARTICLES_FILE string  = "extracted_keywords.json"
+	IN_SUBPAGES_FILE string  = "subpages_categories_entries.json"
 	WORKERS          int     = 32
 )
 
@@ -85,6 +85,7 @@ func calculateBowPerArticle(subpages map[string]interface{},
 		}
 		articleBow = stem.Lemmatize(articleBow)
 
+		log.Println("Article received", article)
 		fmt.Println(aurora.Red("Article received"), article)
 
 		// Inner loop to cross each article's bow with each of the subpages file
@@ -132,13 +133,6 @@ func calculateBowPerArticle(subpages map[string]interface{},
 }
 
 func main() {
-	//slice1 := []interface{}{"1", "2", "3", "4", "7"}
-	//slice2 := []interface{}{"1", "4", "5", "7", "9"}
-	//
-	//fmt.Printf("%v\n", jaccard.Distance(slice1, slice2))
-	//
-	//translate.Translate("in_extracted_keywords.txt", "in_bow_translated.json", "out.json")
-
 	f, logErr := os.OpenFile(LOG_FILE, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if logErr != nil {
 		panic("Could not create log file")
